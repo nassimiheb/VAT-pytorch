@@ -20,6 +20,7 @@ import numpy as np
 
 import matplotlib.pyplot as plt
 
+
 from torch.utils.data import DataLoader
 # class Net(nn.Module):
 #     def __init__(self, keep_prob_hidden=0.5, lrelu_a=0.1, top_bn=False):
@@ -110,7 +111,7 @@ def train(args, model, device, data_iterators, optimizer):
     train_prec1 = []   
     valid_prec1 = []
     best_valid_acc = 0.0
-    patience = 10 # maximum number of epochs without improvement
+    patience = 5  # maximum number of epochs without improvement
     epochs_since_last_improvement = 0
     
 
@@ -131,36 +132,34 @@ def train(args, model, device, data_iterators, optimizer):
 
         optimizer.zero_grad()
 
-        #vat_loss = VATLoss(xi=args.xi, eps=args.eps, ip=args.ip)
+        vat_loss = VATLoss(xi=args.xi, eps=args.eps, ip=args.ip)
         cross_entropy = nn.CrossEntropyLoss()
-        
 
-        #lds = vat_loss(model, x_ul)
+        lds = vat_loss(model, x_ul)
         output = model(x_l)
-        # Compute the softmax probabilities
-        probs = F.softmax(output, dim=1)
+        # # Compute the softmax probabilities
+        # probs = F.softmax(output, dim=1)
 
-        # Compute the log-softmax probabilities
-        log_probs = F.log_softmax(output, dim=1)
+        # # Compute the log-softmax probabilities
+        # log_probs = F.log_softmax(output, dim=1)
 
-        # Compute the entropy
-        entropy = -torch.mean(torch.sum(probs * log_probs, dim=1))
+        # # Compute the entropy
+        # entropy = -torch.mean(torch.sum(probs * log_probs, dim=1))
 
-        
         classification_loss = cross_entropy(output, y_l)
-        loss = classification_loss + 0.01 * entropy #+ args.alpha * lds
+        loss = classification_loss + args.alpha * lds #+ 0.01 * entropy
         loss.backward()
         optimizer.step()
 
         acc = utils.accuracy(output, y_l)
         ce_losses.update(classification_loss.item(), x_l.shape[0])
-        #vat_losses.update(lds.item(), x_ul.shape[0])
+        vat_losses.update(lds.item(), x_ul.shape[0])
         prec1.update(acc.item(), x_l.shape[0])
 
         if i % args.log_interval == 0:
             print(f'\nIteration: {i}\t'
                 f'CrossEntropyLoss {ce_losses.val:.4f} ({ce_losses.avg:.4f})\t'
-                #f'VATLoss {vat_losses.val:.4f} ({vat_losses.avg:.4f})\t'
+                f'VATLoss {vat_losses.val:.4f} ({vat_losses.avg:.4f})\t'
                 f'Prec@1 {prec1.val:.3f} ({prec1.avg:.3f})')
                 # Validation
             val_dataloader = DataLoader(data_iterators['val'].dataset, shuffle=False)
@@ -184,7 +183,7 @@ def train(args, model, device, data_iterators, optimizer):
                 break
         # Append training statistics to lists
         train_ce_losses.append(ce_losses.avg)
-        #train_vat_losses.append(vat_losses.avg)
+        train_vat_losses.append(vat_losses.avg)
         train_prec1.append(prec1.avg)
  
         
@@ -202,7 +201,7 @@ def train(args, model, device, data_iterators, optimizer):
     fig, ax = plt.subplots()
 
     ax.plot(train_ce_losses, label='Train Cross Entropy Loss')
-    #ax.plot(train_vat_losses, label='Train VAT Loss')
+    ax.plot(train_vat_losses, label='Train VAT Loss')
     #ax.plot(valid_losses, label='Validation Loss')
 
     ax.set_xlabel('Iterations')
@@ -211,20 +210,23 @@ def train(args, model, device, data_iterators, optimizer):
     ax.legend()
 
     plt.show()
+   
 
 def test(model, device, data_iterators):
     model.eval()
     correct = 0
     with torch.no_grad():
-        for x, y in tqdm(data_iterators):
+        for x, y in tqdm(data_iterators): 
+
             with torch.no_grad():
                 x, y = x.to(device), y.to(device)
                 outputs = model(x)
             correct += torch.eq(outputs.max(dim=1)[1], y).detach().cpu().float().sum()
+            
 
         test_acc = correct / len(data_iterators.dataset) * 100.
 
-    return test_acc  
+    return test_acc
 
 
 def main():
@@ -272,19 +274,16 @@ def main():
 
     model = Net().to(device)
     optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum)
-    # Create a new instance of your model
 
     train(args, model, device, data_iterators, optimizer)
-    
+    # Create a new instance of your model
     model = Net().to(device)
-
 
     # Load the state dictionary of the best model
     best_model_state_dict = torch.load("/home/nassimiheb/DL/VAT-pytorch/best_weights.pth")
     model.load_state_dict(best_model_state_dict)
-    test_acc = test(model, device, data_iterators['test'])
-    print(f'\nTest Accuracy: {test_acc:.4f}%\n')
-
+    test_accuracy = test(model, device, data_iterators['test'])
+    print(f'\nTest Accuracy: {test_accuracy :.4f}%\n')
 
 if __name__ == '__main__':
     main()
