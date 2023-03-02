@@ -133,11 +133,22 @@ def train(args, model, device, data_iterators, optimizer):
 
         #vat_loss = VATLoss(xi=args.xi, eps=args.eps, ip=args.ip)
         cross_entropy = nn.CrossEntropyLoss()
+        
 
         #lds = vat_loss(model, x_ul)
         output = model(x_l)
+        # Compute the softmax probabilities
+        probs = F.softmax(output, dim=1)
+
+        # Compute the log-softmax probabilities
+        log_probs = F.log_softmax(output, dim=1)
+
+        # Compute the entropy
+        entropy = -torch.mean(torch.sum(probs * log_probs, dim=1))
+
+        
         classification_loss = cross_entropy(output, y_l)
-        loss = classification_loss #+ args.alpha * lds
+        loss = classification_loss + 0.01 * entropy #+ args.alpha * lds
         loss.backward()
         optimizer.step()
 
