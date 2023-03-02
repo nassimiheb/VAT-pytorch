@@ -42,7 +42,7 @@ class InfiniteSampler(sampler.Sampler):
 
 def get_iters(
         dataset='CIFAR10', root_path='.', data_transforms=None,
-        n_labeled=4000, valid_size=1000,
+        n_labeled=100, valid_size=100,
         l_batch_size=32, ul_batch_size=128, test_batch_size=256,
         workers=8, pseudo_label=None):
     
@@ -55,6 +55,9 @@ def get_iters(
     elif dataset == 'CIFAR100':
         train_dataset = datasets.CIFAR100(train_path, download=True, train=True, transform=None)
         test_dataset = datasets.CIFAR100(test_path, download=True, train=False, transform=None)
+    elif dataset == 'MNIST':
+        train_dataset = datasets.MNIST(train_path, download=True, train=True, transform=None)
+        test_dataset = datasets.MNIST(test_path, download=True, train=False, transform=None)
     else:
         raise ValueError
 
@@ -64,17 +67,17 @@ def get_iters(
                 transforms.ToPILImage(),
                 transforms.RandomHorizontalFlip(),
                 transforms.ToTensor(),
-                transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5]),
+                transforms.Normalize((0.5,), (0.5,))
             ]),
             'eval': transforms.Compose([
                 transforms.ToPILImage(),
                 transforms.ToTensor(),
-                transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5]),
+                transforms.Normalize((0.5,), (0.5,))
             ]),
         }
 
-    x_train, y_train = train_dataset.train_data, np.array(train_dataset.train_labels)
-    x_test, y_test = test_dataset.test_data, np.array(test_dataset.test_labels)
+    x_train, y_train = train_dataset.data, np.array(train_dataset.targets)
+    x_test, y_test = test_dataset.data, np.array(test_dataset.targets)
 
     randperm = np.random.permutation(len(x_train))
     labeled_idx = randperm[:n_labeled]
